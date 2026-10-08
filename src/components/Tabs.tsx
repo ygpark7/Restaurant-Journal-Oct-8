@@ -47,6 +47,9 @@ export function Tabs<T extends string>({
             id={`tab-${tab.id}`}
             type="button"
             aria-selected={selected}
+            aria-label={
+              tab.count === undefined ? undefined : `${tab.label} (${tab.count})`
+            }
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => onKeyDown(e, i)}
@@ -59,7 +62,7 @@ export function Tabs<T extends string>({
           >
             {tab.label}
             {tab.count !== undefined && (
-              <span className="ml-1.5 font-normal">({tab.count})</span>
+              <span className="font-normal">{` (${tab.count})`}</span>
             )}
           </button>
         );
