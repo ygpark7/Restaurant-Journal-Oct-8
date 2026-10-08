@@ -12,7 +12,8 @@
     "lint": "eslint .",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "seed:sql": "node scripts/generate-seed-sql.mjs"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +21,7 @@
   "type": "module",
   "private": "true",
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.3",
     "@tanstack/react-query": "^5.104.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

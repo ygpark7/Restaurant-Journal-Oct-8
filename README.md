@@ -7,7 +7,7 @@ A mobile-first web app for parents of young kids in New York City: **"Where can 
 
 ## Run it
 
-Requires Node 20+ (developed on Node 24).
+Requires Node 20+ (developed on Node 24; regenerating the Supabase seed file needs Node 22.6+).
 
 ```bash
 npm install
@@ -65,7 +65,7 @@ src/
   lib/        Small helpers (dates, storage, query client, repositories context)
 ```
 
-### The key idea: UI depends on interfaces, never on the mock
+### The key idea: UI depends on interfaces, never on an implementation
 
 ```
 Component -> useRestaurants() hook -> useRepositories() -> RestaurantRepository (interface)
@@ -75,7 +75,7 @@ Component -> useRestaurants() hook -> useRepositories() -> RestaurantRepository 
 
 - `src/domain/repositories.ts` defines `RestaurantRepository`, `VisitRepository`, and `SavedPlacesRepository`.
 - `src/data/mock/` implements them against seed data and `localStorage`.
-- `src/app/repositories.ts` is the **only** place that imports an implementation. An ESLint rule (`no-restricted-imports`) fails the build if anything else imports from `data/mock`.
+- `src/app/repositories.ts` is the **only** place that imports an implementation. An ESLint rule (`no-restricted-imports`) fails the build if anything else imports from `data/mock`, `data/supabase`, or `@supabase/supabase-js`.
 - TanStack Query wraps the repository calls in each feature's `queries.ts`. Components never see where data comes from.
 
 ### One place to change kid-friendly attributes
@@ -112,30 +112,38 @@ Two design notes:
 - **Quick-log flow** (`features/log/QuickLogPage.test.tsx`): full log, validation, picking a restaurant, partial confirmations, and save failure.
 - **Screens**: Discover (loading, empty, error, filters), My places, Share, and URL filter params.
 
-## How to swap in Supabase later
+## Using Supabase
 
-The goal: **change one file, not the components.**
+The app runs on the in-browser mock by default. It switches to Supabase when two env vars are set. **Nothing in `src/features` or `src/components` changes between the two**: the only file that picks an implementation is `src/app/repositories.ts`.
 
-1. **Install and configure** `@supabase/supabase-js` and add your URL and anon key to `.env.local`.
-2. **Create the tables** from the mapping above. Add RLS so users can only write their own visits and saved places.
-3. **Implement the three interfaces** in a new `src/data/supabase/` folder (`SupabaseRestaurantRepository`, `SupabaseVisitRepository`, `SupabaseSavedPlacesRepository`), and export a `createSupabaseRepositories(): Repositories`. Things to replicate from the mock:
-   - **Effective attributes:** `Restaurant.attributes` should reflect the latest confirmation per attribute. A SQL view or `select` with a join on `visit_attribute_confirmations` does this. The mock does it in `data/mock/effectiveRestaurant.ts`.
-   - **Filtering:** `RestaurantFilters` semantics (OR within an attribute, AND across attributes, text matches name/cuisine/neighborhood) are specified by `domain/filterRestaurants.ts` and the contract tests. Translate them to a query. "Good for tonight" ranking can stay client-side, since it only reorders.
-   - **Current user:** read it from the Supabase session instead of the mock's `CURRENT_USER`.
-   - **Photos:** upload to Supabase Storage and store the URL in `Visit.photoUrl`. Today it's a small data URL.
-4. **Run the contract tests against it.** Add `src/data/supabase/supabase.contract.test.ts`:
+### One-time setup
 
-   ```ts
-   import { runRepositoryContract } from '@/data/contract/repositoryContract';
-   runRepositoryContract('Supabase', () => createSupabaseRepositories(/* test client */));
-   ```
+1. **Enable anonymous sign-ins:** Supabase dashboard -> Authentication -> Sign In / Providers -> turn on **Allow anonymous sign-ins**. Each browser then gets its own private user automatically (no login screen). Real login can be added later and keeps the same user ids.
+2. **Create the schema:** open the SQL editor, paste and run [supabase/migrations/20261008000000_init.sql](supabase/migrations/20261008000000_init.sql). It creates the tables, row-level security, the `restaurant_attributes_effective` view, and the `log_visit` function.
+3. **Load the sample data:** run [supabase/seed.sql](supabase/seed.sql) in the same editor. It is generated from the app's fake seed data (`npm run seed:sql` regenerates it) and is safe to run twice.
+4. **Add your keys:** copy `.env.example` to `.env.local`, set `VITE_SUPABASE_URL`, and set `VITE_SUPABASE_ANON_KEY` to the public **anon / publishable** key (Project Settings -> API). **Never** use the `service_role` / secret key: everything prefixed `VITE_` is shipped to the browser.
+5. Restart `npm run dev`. The browser console says `[data] Using Supabase`. Add `?data=mock` to the URL to force the mock.
 
-   The contract assumes a fresh user with no saved places or visits for each test, so point it at a test project or reset between tests.
+### How it works
 
-5. **Flip the switch** in `src/app/repositories.ts`: return `createSupabaseRepositories()` from `createAppRepositories()`. Nothing else changes.
-6. **Migrate stored data** if you rename an attribute `key`: update the `restaurant_attributes.key` and `visit_attribute_confirmations.key` columns.
+- **Identity:** the first time someone saves a place or logs a visit, they are signed in anonymously and Supabase keeps the session in `localStorage`. Merely browsing never creates a user. (`src/data/supabase/session.ts`)
+- **Security (row-level security):** restaurants, attributes, and parents' notes are readable by everyone; visits and saved places can only be written as yourself; saved places are private to their owner. Clients can't update or delete visits.
+- **Effective attributes:** the view returns, per attribute, the latest of the stored value and any visit confirmation (the same rule as `data/mock/effectiveRestaurant.ts`).
+- **Logging a visit** is one atomic `log_visit` call (the visit plus its confirmations). The hook then marks the place "Been there", same as with the mock.
+- **Filtering** is done in the browser with the same pure `filterRestaurants` function the mock uses, after fetching all restaurants. That is fine for a few dozen places; push the filters into the SQL query if the catalog grows large.
+- **Photos** are small data URLs stored in `visits.photo_url`. Move them to Supabase Storage when you're ready.
 
-Also check the share link: `useShare` builds links on the app's own origin (`/restaurants/:id`). That already works for restaurants. For shared lists, `/places?tab=...` is a placeholder that shows the _viewer's_ saved places. A real shared list needs a list id and a public route.
+### Verifying a real project
+
+The shared contract tests can run against your real project. They sign in as brand-new anonymous users and create visits and saved places, so prefer a test project:
+
+```bash
+SUPABASE_CONTRACT_URL=https://xxx.supabase.co SUPABASE_CONTRACT_KEY=<anon key> npm test
+```
+
+Without those variables the Supabase contract test is skipped.
+
+Also note the share link: `useShare` builds links on the app's own origin. `/restaurants/:id` already works for everyone. A shared _list_ link (`/places?tab=...`) is still a placeholder that shows the _viewer's_ saved places; a real shared list needs a list id and a public route.
 
 ## Decisions and trade-offs
 
@@ -148,6 +156,6 @@ Also check the share link: `useShare` builds links on the app's own origin (`/re
 
 ## Known limitations
 
-- Single hardcoded mock user. There is no auth.
+- No login screen: with the mock there is one hardcoded user; with Supabase each browser is an anonymous user (clearing site data loses that identity and its saved places).
 - Hours are weekly windows in New York time; holidays and special hours aren't modeled.
 - If you run the project from a path containing `*` (like the original folder name), Vite prints a warning. It works, but renaming the folder is cleaner.

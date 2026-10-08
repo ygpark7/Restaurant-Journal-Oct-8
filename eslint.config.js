@@ -22,7 +22,7 @@ export default tseslint.config(
     },
   },
   {
-    // Components must only depend on repository interfaces, never on the mock implementation.
+    // Components must only depend on repository interfaces, never on an implementation.
     // The single composition file (src/app/repositories.ts) and tests are the exceptions.
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
@@ -35,16 +35,29 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
+          paths: [
+            {
+              name: '@supabase/supabase-js',
+              message:
+                'Only the composition file (src/app/repositories.ts) and src/data/supabase may use the Supabase client.',
+            },
+          ],
           patterns: [
             {
-              group: ['**/data/mock/**', '@/data/mock/**'],
+              group: [
+                '**/data/mock/**',
+                '@/data/mock/**',
+                '**/data/supabase/**',
+                '@/data/supabase/**',
+              ],
               message:
-                'Import repository interfaces from @/domain and use useRepositories(). Only src/app/repositories.ts may import the mock.',
+                'Import repository interfaces from @/domain and use useRepositories(). Only src/app/repositories.ts may import an implementation.',
             },
           ],
         },
       ],
     },
   },
+  { files: ['scripts/**/*.mjs'], languageOptions: { globals: globals.node } },
   prettier,
 );
