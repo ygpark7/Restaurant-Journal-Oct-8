@@ -17,6 +17,8 @@ export default tseslint.config(
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
+      // Our radio/file labels nest their text a few elements deep.
+      'jsx-a11y/label-has-associated-control': ['error', { depth: 4 }],
     },
   },
   {
