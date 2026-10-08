@@ -25,6 +25,14 @@ export interface User {
   avatarEmoji?: string;
 }
 
+/** The signed-in person, as the auth system knows them (the email is private). */
+export interface AuthUser {
+  id: Id;
+  email: string;
+  /** Shown publicly next to their notes. Undefined means "A parent". */
+  displayName?: string;
+}
+
 /** One opening window. `close` earlier than `open` means it runs past midnight. */
 export interface OpeningPeriod {
   /** 0 = Sunday ... 6 = Saturday, in New York local time. */

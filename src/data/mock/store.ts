@@ -5,6 +5,14 @@ import { SEED_VISITS } from './seed/visits';
 
 const VISITS_KEY = 'rj:v1:visits';
 const SAVED_KEY = 'rj:v1:saved';
+const AUTH_KEY = 'rj:v1:auth';
+
+/** Demo auth: you start signed in as the mock user; signing out and in again works with any email. */
+export interface MockAuthState {
+  signedOut?: boolean;
+  email?: string;
+  displayName?: string;
+}
 
 /**
  * Tiny localStorage-backed store. Seed data lives in code; only what the user creates
@@ -29,5 +37,11 @@ export const mockStore = {
   },
   setSaved(places: SavedPlace[]): void {
     writeJson(SAVED_KEY, places);
+  },
+  auth(): MockAuthState {
+    return readJson<MockAuthState>(AUTH_KEY, {});
+  },
+  setAuth(state: MockAuthState): void {
+    writeJson(AUTH_KEY, state);
   },
 };

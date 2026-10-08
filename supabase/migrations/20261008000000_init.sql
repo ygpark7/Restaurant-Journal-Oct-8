@@ -1,7 +1,7 @@
 -- Table for Little Ones: initial schema.
 --
 -- Run this in the Supabase dashboard (SQL editor), then run supabase/seed.sql for sample data.
--- Prerequisite: Authentication -> Sign In / Providers -> enable "Allow anonymous sign-ins".
+-- Prerequisite: Authentication -> Sign In / Providers -> Email is enabled (see the README for "Confirm email").
 --
 -- Mapping from the app's domain types (src/domain/types.ts):
 --   Restaurant            -> restaurants
@@ -226,5 +226,11 @@ grant select on public.profiles, public.restaurants, public.restaurant_attribute
 grant insert on public.visits, public.visit_attribute_confirmations to authenticated;
 grant select, insert, update, delete on public.saved_places to authenticated;
 
+-- Functions are executable by everyone by default; lock them down.
+revoke execute on function public.log_visit(text, timestamptz, smallint, smallint, text, text, jsonb)
+  from public, anon;
 grant execute on function public.log_visit(text, timestamptz, smallint, smallint, text, text, jsonb)
   to authenticated;
+
+-- Only the auth trigger should run this (it is security definer), never an API caller.
+revoke execute on function public.handle_new_user() from public, anon, authenticated;

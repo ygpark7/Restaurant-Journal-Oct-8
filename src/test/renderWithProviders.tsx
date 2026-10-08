@@ -6,6 +6,7 @@ import { createMockRepositories } from '@/data/mock/MockRepositories';
 import type { MockOptions } from '@/data/mock/latency';
 import type { Repositories } from '@/domain/repositories';
 import { ToastProvider } from '@/components/Toast';
+import { AuthProvider } from '@/features/auth/AuthProvider';
 import { createQueryClient } from '@/lib/queryClient';
 import { RepositoriesProvider } from '@/lib/repositories-context';
 
@@ -22,9 +23,11 @@ export function renderWithProviders(
     ...render(
       <RepositoriesProvider repositories={repositories}>
         <QueryClientProvider client={queryClient}>
-          <ToastProvider>
-            <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
-          </ToastProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <MemoryRouter initialEntries={[options.route ?? '/']}>{ui}</MemoryRouter>
+            </ToastProvider>
+          </AuthProvider>
         </QueryClientProvider>
       </RepositoriesProvider>,
     ),

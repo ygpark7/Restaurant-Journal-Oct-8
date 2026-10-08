@@ -36,6 +36,12 @@ const PATHS = {
       <circle cx="12" cy="10" r="2" />
     </>
   ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </>
+  ),
   camera: (
     <>
       <path d="M4 8h3l2-3h6l2 3h3v11H4z" />

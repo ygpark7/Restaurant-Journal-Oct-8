@@ -7,7 +7,11 @@
  * so it doesn't depend on any particular seed data beyond "there are some restaurants".
  */
 import { beforeEach, describe, expect, it } from 'vitest';
-import { NotFoundError, type Repositories } from '@/domain/repositories';
+import {
+  NotFoundError,
+  NotSignedInError,
+  type Repositories,
+} from '@/domain/repositories';
 import type { NewVisit } from '@/domain/types';
 
 function visitFor(restaurantId: string, overrides: Partial<NewVisit> = {}): NewVisit {
@@ -21,11 +25,18 @@ function visitFor(restaurantId: string, overrides: Partial<NewVisit> = {}): NewV
   };
 }
 
-export function runRepositoryContract(name: string, createRepos: () => Repositories) {
+/**
+ * `createRepos` must return repositories for a signed-in user who has no visits or saved places.
+ * It may be async (a real backend has to sign someone in first).
+ */
+export function runRepositoryContract(
+  name: string,
+  createRepos: () => Repositories | Promise<Repositories>,
+) {
   describe(`Repository contract: ${name}`, () => {
     let repos: Repositories;
-    beforeEach(() => {
-      repos = createRepos();
+    beforeEach(async () => {
+      repos = await createRepos();
     });
 
     describe('RestaurantRepository', () => {
@@ -111,6 +122,38 @@ export function runRepositoryContract(name: string, createRepos: () => Repositor
         const after = (await repos.restaurants.getById(r!.id))!.attributes.changingTable;
         expect(after?.value).toBe(flipped);
         expect(after?.lastConfirmedAt).toBe(visitedAt);
+      });
+    });
+
+    describe('AuthRepository', () => {
+      it('reports the signed-in user and notifies listeners about sign-out', async () => {
+        expect((await repos.auth.getUser())?.id).toBeTruthy();
+
+        const seen: (string | null)[] = [];
+        const stop = repos.auth.onChange((user) => seen.push(user?.id ?? null));
+        await repos.auth.signOut();
+        stop();
+
+        expect(await repos.auth.getUser()).toBeNull();
+        expect(seen).toContain(null);
+      });
+
+      it('lets signed-out visitors read public data, but not write', async () => {
+        const [r] = await repos.restaurants.search();
+        await repos.auth.signOut();
+
+        expect((await repos.restaurants.getById(r!.id))?.id).toBe(r!.id);
+        expect(await repos.visits.listByRestaurant(r!.id)).toBeDefined();
+        expect(await repos.savedPlaces.list()).toEqual([]);
+        expect(await repos.savedPlaces.get(r!.id)).toBeNull();
+        expect(await repos.visits.listMine()).toEqual([]);
+
+        await expect(repos.visits.create(visitFor(r!.id))).rejects.toBeInstanceOf(
+          NotSignedInError,
+        );
+        await expect(repos.savedPlaces.save(r!.id, 'want_to_try')).rejects.toBeInstanceOf(
+          NotSignedInError,
+        );
       });
     });
 

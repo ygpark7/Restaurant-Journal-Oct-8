@@ -18,7 +18,8 @@ import {
   type SavedPlaceRow,
   type VisitRow,
 } from './mapping';
-import { AnonymousSession } from './session';
+import { SupabaseAuthRepository } from './SupabaseAuthRepository';
+import { AuthSession } from './session';
 
 const FOREIGN_KEY_VIOLATION = '23503';
 const CHECK_VIOLATION = '23514';
@@ -34,9 +35,9 @@ const VISIT_SELECT =
   '*, visit_attribute_confirmations(key, value), author:profiles(id, display_name, avatar_emoji)';
 
 class Context {
-  readonly session: AnonymousSession;
+  readonly session: AuthSession;
   constructor(readonly client: SupabaseClient) {
-    this.session = new AnonymousSession(client);
+    this.session = new AuthSession(client);
   }
 
   /**
@@ -78,7 +79,7 @@ class SupabaseVisitRepository implements VisitRepository {
   constructor(private ctx: Context) {}
 
   async create(input: NewVisit) {
-    await this.ctx.session.userId();
+    await this.ctx.session.requireUserId();
     const { data: id, error } = await this.ctx.client.rpc('log_visit', {
       p_restaurant_id: input.restaurantId,
       p_visited_at: input.visitedAt,
@@ -160,7 +161,7 @@ class SupabaseSavedPlacesRepository implements SavedPlacesRepository {
   }
 
   async save(restaurantId: string, status: SavedStatus) {
-    const me = await this.ctx.session.userId();
+    const me = await this.ctx.session.requireUserId();
     // Upsert only sends these columns, so created_at keeps its original value on a status change.
     const { data, error } = await this.ctx.client
       .from('saved_places')
@@ -189,6 +190,7 @@ class SupabaseSavedPlacesRepository implements SavedPlacesRepository {
 export function createSupabaseRepositories(client: SupabaseClient): Repositories {
   const ctx = new Context(client);
   return {
+    auth: new SupabaseAuthRepository(client),
     restaurants: new SupabaseRestaurantRepository(ctx),
     visits: new SupabaseVisitRepository(ctx),
     savedPlaces: new SupabaseSavedPlacesRepository(ctx),

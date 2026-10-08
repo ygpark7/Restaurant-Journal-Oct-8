@@ -1,6 +1,7 @@
 import { filterRestaurants } from '@/domain/filterRestaurants';
 import {
   NotFoundError,
+  NotSignedInError,
   type Repositories,
   type RestaurantRepository,
   type SavedPlacesRepository,
@@ -10,7 +11,8 @@ import type { Restaurant, SavedPlace, Visit } from '@/domain/types';
 import { newId } from '@/lib/id';
 import { withConfirmations } from './effectiveRestaurant';
 import { simulateNetwork, type MockOptions } from './latency';
-import { ALL_USERS, CURRENT_USER } from './seed/users';
+import { MockAuthRepository } from './MockAuthRepository';
+import { ALL_USERS } from './seed/users';
 import { mockStore } from './store';
 
 function effectiveRestaurants(): Restaurant[] {
@@ -40,10 +42,15 @@ class MockRestaurantRepository implements RestaurantRepository {
 }
 
 class MockVisitRepository implements VisitRepository {
-  constructor(private options: MockOptions) {}
+  constructor(
+    private options: MockOptions,
+    private auth: MockAuthRepository,
+  ) {}
 
   create(input: Parameters<VisitRepository['create']>[0]) {
     return simulateNetwork(this.options, () => {
+      const user = this.auth.currentUser();
+      if (!user) throw new NotSignedInError();
       if (!mockStore.restaurants().some((r) => r.id === input.restaurantId)) {
         throw new NotFoundError('Restaurant');
       }
@@ -53,7 +60,7 @@ class MockVisitRepository implements VisitRepository {
       const visit: Visit = {
         ...input,
         id: newId(),
-        userId: CURRENT_USER.id,
+        userId: user.id,
         createdAt: new Date().toISOString(),
       };
       mockStore.addVisit(visit);
@@ -79,16 +86,22 @@ class MockVisitRepository implements VisitRepository {
 
   listMine() {
     return simulateNetwork(this.options, () =>
-      mockStore.myVisits().sort((a, b) => b.visitedAt.localeCompare(a.visitedAt)),
+      this.auth.currentUser()
+        ? mockStore.myVisits().sort((a, b) => b.visitedAt.localeCompare(a.visitedAt))
+        : [],
     );
   }
 }
 
 class MockSavedPlacesRepository implements SavedPlacesRepository {
-  constructor(private options: MockOptions) {}
+  constructor(
+    private options: MockOptions,
+    private auth: MockAuthRepository,
+  ) {}
 
   list(status?: SavedPlace['status']) {
     return simulateNetwork(this.options, () => {
+      if (!this.auth.currentUser()) return [];
       const restaurants = effectiveRestaurants();
       return mockStore
         .saved()
@@ -102,21 +115,24 @@ class MockSavedPlacesRepository implements SavedPlacesRepository {
   }
 
   get(restaurantId: string) {
-    return simulateNetwork(
-      this.options,
-      () => mockStore.saved().find((s) => s.restaurantId === restaurantId) ?? null,
+    return simulateNetwork(this.options, () =>
+      this.auth.currentUser()
+        ? (mockStore.saved().find((s) => s.restaurantId === restaurantId) ?? null)
+        : null,
     );
   }
 
   save(restaurantId: string, status: SavedPlace['status']) {
     return simulateNetwork(this.options, () => {
+      const user = this.auth.currentUser();
+      if (!user) throw new NotSignedInError();
       if (!mockStore.restaurants().some((r) => r.id === restaurantId)) {
         throw new NotFoundError('Restaurant');
       }
       const existing = mockStore.saved();
       const previous = existing.find((s) => s.restaurantId === restaurantId);
       const place: SavedPlace = {
-        userId: CURRENT_USER.id,
+        userId: user.id,
         restaurantId,
         status,
         // Keep the original save time when only the status changes.
@@ -132,6 +148,7 @@ class MockSavedPlacesRepository implements SavedPlacesRepository {
 
   remove(restaurantId: string) {
     return simulateNetwork(this.options, () => {
+      if (!this.auth.currentUser()) return;
       mockStore.setSaved(
         mockStore.saved().filter((s) => s.restaurantId !== restaurantId),
       );
@@ -140,9 +157,11 @@ class MockSavedPlacesRepository implements SavedPlacesRepository {
 }
 
 export function createMockRepositories(options: MockOptions = {}): Repositories {
+  const auth = new MockAuthRepository(options);
   return {
+    auth,
     restaurants: new MockRestaurantRepository(options),
-    visits: new MockVisitRepository(options),
-    savedPlaces: new MockSavedPlacesRepository(options),
+    visits: new MockVisitRepository(options, auth),
+    savedPlaces: new MockSavedPlacesRepository(options, auth),
   };
 }

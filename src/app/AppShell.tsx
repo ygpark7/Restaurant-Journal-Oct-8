@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { Icon, type IconName } from '@/components/Icon';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { cn } from '@/lib/cn';
 
 const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
@@ -24,6 +25,9 @@ function SampleDataNote({ className, short }: { className?: string; short?: bool
 
 export function AppShell() {
   const { pathname } = useLocation();
+  const { status, user } = useAuth();
+  const accountTo = status === 'signedIn' ? '/account' : '/login';
+  const accountLabel = status === 'signedIn' ? 'Account' : 'Sign in';
 
   // A new page should start at the top.
   useEffect(() => {
@@ -64,7 +68,30 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <SampleDataNote className="mt-auto" />
+        <div className="mt-auto flex flex-col gap-3">
+          <NavLink
+            to={accountTo}
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-11 items-center gap-3 rounded-full px-4 text-base font-semibold',
+                isActive
+                  ? 'bg-sage-100 text-sage-700'
+                  : 'text-ink-700 hover:bg-cream-200',
+              )
+            }
+          >
+            <Icon name="user" />
+            <span className="min-w-0">
+              <span className="block">{accountLabel}</span>
+              {user && (
+                <span className="block truncate text-sm font-normal text-ink-500">
+                  {user.email}
+                </span>
+              )}
+            </span>
+          </NavLink>
+          <SampleDataNote />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -73,7 +100,21 @@ export function AppShell() {
           <div className="flex items-center gap-2 whitespace-nowrap text-lg font-bold text-sage-700">
             <span aria-hidden="true">🍽️</span> Table for Little Ones
           </div>
-          <SampleDataNote short className="whitespace-nowrap px-2.5 py-0.5 text-xs" />
+          <div className="flex items-center gap-1">
+            <SampleDataNote short className="whitespace-nowrap px-2.5 py-0.5 text-xs" />
+            <NavLink
+              to={accountTo}
+              aria-label={accountLabel}
+              className={({ isActive }) =>
+                cn(
+                  'flex size-11 items-center justify-center rounded-full',
+                  isActive ? 'bg-sage-100 text-sage-700' : 'text-ink-700',
+                )
+              }
+            >
+              <Icon name="user" />
+            </NavLink>
+          </div>
         </header>
 
         <main

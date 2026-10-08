@@ -118,24 +118,27 @@ The app runs on the in-browser mock by default. It switches to Supabase when two
 
 ### One-time setup
 
-1. **Enable anonymous sign-ins:** Supabase dashboard -> Authentication -> Sign In / Providers -> turn on **Allow anonymous sign-ins**. Each browser then gets its own private user automatically (no login screen). Real login can be added later and keeps the same user ids.
-2. **Create the schema:** open the SQL editor, paste and run [supabase/migrations/20261008000000_init.sql](supabase/migrations/20261008000000_init.sql). It creates the tables, row-level security, the `restaurant_attributes_effective` view, and the `log_visit` function.
-3. **Load the sample data:** run [supabase/seed.sql](supabase/seed.sql) in the same editor. It is generated from the app's fake seed data (`npm run seed:sql` regenerates it) and is safe to run twice.
+1. **Email sign-in** is on by default in Supabase (Authentication -> Sign In / Providers -> Email). For development, also turn **off "Confirm email"** there: with it on, new accounts must click a link in an email first, and Supabase's built-in email sender is heavily rate-limited (and only delivers to your team's addresses). The app handles both: with confirmation on it shows a "Check your email" screen.
+2. **Create the schema:** run the files in `supabase/migrations/` in order in the SQL editor (or apply them with the Supabase CLI): `20261008000000_init.sql`, then `20261008000100_email_auth_display_name.sql`. They create the tables, row-level security, the `restaurant_attributes_effective` view, the `log_visit` function, and the trigger that creates a profile for each new account.
+3. **Load the sample data:** run [supabase/seed.sql](supabase/seed.sql). It is generated from the app's fake seed data (`npm run seed:sql` regenerates it) and is safe to run twice.
 4. **Add your keys:** copy `.env.example` to `.env.local`, set `VITE_SUPABASE_URL`, and set `VITE_SUPABASE_ANON_KEY` to the public **anon / publishable** key (Project Settings -> API). **Never** use the `service_role` / secret key: everything prefixed `VITE_` is shipped to the browser.
-5. Restart `npm run dev`. The browser console says `[data] Using Supabase`. Add `?data=mock` to the URL to force the mock.
+5. Restart `npm run dev` (Vite only reads `.env.local` at startup). Add `?data=mock` to the URL to force the in-browser mock.
 
 ### How it works
 
-- **Identity:** the first time someone saves a place or logs a visit, they are signed in anonymously and Supabase keeps the session in `localStorage`. Merely browsing never creates a user. (`src/data/supabase/session.ts`)
+- **Email login:** `/login` signs in or creates an account with an email and password. Browsing (Discover, restaurant pages, parents' notes) needs no account. **My places** and **Log a visit** require one, and tapping **Save** while signed out sends you to login and then straight back. `/account` shows who you are and signs you out. Supabase keeps the session in `localStorage`.
+- **Your public name:** at sign-up you can give a name shown next to your notes. Left blank, you appear as "A parent". The email address is never shown to other people.
+- **Not built yet:** password reset ("forgot password"), changing your name or email, and social login.
 - **Security (row-level security):** restaurants, attributes, and parents' notes are readable by everyone; visits and saved places can only be written as yourself; saved places are private to their owner. Clients can't update or delete visits.
 - **Effective attributes:** the view returns, per attribute, the latest of the stored value and any visit confirmation (the same rule as `data/mock/effectiveRestaurant.ts`).
 - **Logging a visit** is one atomic `log_visit` call (the visit plus its confirmations). The hook then marks the place "Been there", same as with the mock.
 - **Filtering** is done in the browser with the same pure `filterRestaurants` function the mock uses, after fetching all restaurants. That is fine for a few dozen places; push the filters into the SQL query if the catalog grows large.
 - **Photos** are small data URLs stored in `visits.photo_url`. Move them to Supabase Storage when you're ready.
+- **Mock mode** has demo auth: you start signed in as a fake user, and signing out then in again accepts any email and password (it is not a real check).
 
 ### Verifying a real project
 
-The shared contract tests can run against your real project. They sign in as brand-new anonymous users and create visits and saved places, so prefer a test project:
+The shared contract tests can run against your real project. Each test signs up a brand-new throwaway user (this needs "Confirm email" off) and creates visits and saved places, so prefer a test project:
 
 ```bash
 SUPABASE_CONTRACT_URL=https://xxx.supabase.co SUPABASE_CONTRACT_KEY=<anon key> npm test
@@ -156,6 +159,6 @@ Also note the share link: `useShare` builds links on the app's own origin. `/res
 
 ## Known limitations
 
-- No login screen: with the mock there is one hardcoded user; with Supabase each browser is an anonymous user (clearing site data loses that identity and its saved places).
+- Email login has no password reset yet, and you can't edit your name or email after signing up.
 - Hours are weekly windows in New York time; holidays and special hours aren't modeled.
 - If you run the project from a path containing `*` (like the original folder name), Vite prints a warning. It works, but renaming the folder is cleaner.
