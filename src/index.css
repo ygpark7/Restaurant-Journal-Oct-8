@@ -55,3 +55,24 @@
     }
   }
 }
+
+@layer components {
+  dialog.sheet[open] {
+    animation: sheet-in 0.22s ease-out;
+  }
+  dialog.sheet[open]::backdrop {
+    animation: fade-in 0.22s ease-out;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(2rem);
+    opacity: 0;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}

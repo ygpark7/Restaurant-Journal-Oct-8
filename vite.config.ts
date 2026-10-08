@@ -9,6 +9,8 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
+  // The preview tooling assigns a port through $PORT; plain `npm run dev` uses Vite's default.
+  server: process.env.PORT ? { port: Number(process.env.PORT), strictPort: true } : {},
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

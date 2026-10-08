@@ -23,7 +23,12 @@ export default tseslint.config(
     // Components must only depend on repository interfaces, never on the mock implementation.
     // The single composition file (src/app/repositories.ts) and tests are the exceptions.
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/app/repositories.ts', 'src/data/**', '**/*.test.{ts,tsx}'],
+    ignores: [
+      'src/app/repositories.ts',
+      'src/data/**',
+      'src/test/**',
+      '**/*.test.{ts,tsx}',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
