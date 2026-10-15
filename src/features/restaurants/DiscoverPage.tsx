@@ -62,7 +62,7 @@ function SearchBox({
         onChange={(e) => setText(e.target.value)}
         placeholder="Search places or cuisines"
         autoComplete="off"
-        className="h-12 w-full rounded-full border-2 border-cream-300 bg-cream-50 pl-12 pr-4 text-base placeholder:text-ink-500 focus:border-sage-600"
+        className="h-12 w-full rounded-full border-2 border-ink-700 bg-cream-50 pl-12 pr-4 text-base placeholder:text-ink-500 focus:border-sage-600"
       />
     </div>
   );
@@ -114,7 +114,7 @@ export function DiscoverPage() {
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
-          className="relative flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-cream-300 bg-cream-50 hover:border-sage-600"
+          className="relative flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-ink-700 bg-cream-50 hover:border-sage-600"
           aria-label={activeCount ? `Filters, ${activeCount} selected` : 'Filters'}
         >
           <Icon name="sliders" />
@@ -140,7 +140,7 @@ export function DiscoverPage() {
           'flex min-h-14 items-center justify-between gap-4 rounded-card border-2 px-4 py-3 text-left transition-colors',
           filters.goodForTonight
             ? 'border-sage-600 bg-sage-100'
-            : 'border-cream-300 bg-cream-50 hover:border-sage-600',
+            : 'border-ink-700 bg-cream-50 hover:border-sage-600',
         )}
       >
         <span>
@@ -172,6 +172,7 @@ export function DiscoverPage() {
       >
         {QUICK_FILTERS.map((def) => (
           <Chip
+            strongOutline
             key={def.key}
             selected={!!filters.attributes?.[def.key]?.includes(true)}
             onClick={() => {
