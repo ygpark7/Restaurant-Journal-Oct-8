@@ -3,6 +3,11 @@
 @theme {
   --font-sans:
     ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* Headline font from the Figma "Title" text style. "Review" is not bundled (no font file or
+     license in this repo): it renders where installed, and falls back to the body font elsewhere. */
+  --font-title:
+    'Review', ui-rounded, 'SF Pro Rounded', system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
 
   /* Warm neutrals */
   --color-cream-50: #fffaf3;

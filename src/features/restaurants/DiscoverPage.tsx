@@ -105,7 +105,9 @@ export function DiscoverPage() {
   return (
     <div className="flex flex-col gap-4">
       <header>
-        <h1 className="text-3xl font-bold leading-tight">Where can we eat tonight?</h1>
+        <h1 className="font-title text-3xl font-bold leading-tight">
+          Where can we eat tonight?
+        </h1>
         <p className="mt-1 text-ink-500">Relaxed spots that welcome the whole family.</p>
       </header>
 
